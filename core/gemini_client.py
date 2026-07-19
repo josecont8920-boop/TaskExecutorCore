@@ -74,7 +74,8 @@ def generar_guion(tema: str, num_escenas: int = 4) -> dict:
         json=body,
         timeout=60,
     )
-    resp.raise_for_status()
+    if resp.status_code >= 400:
+        raise RuntimeError(f"Gemini devolvio un error ({resp.status_code}): {resp.text}")
     data = resp.json()
 
     try:
