@@ -10,8 +10,10 @@ Uso:
     python3 productor_mxl.py ruta/al/guion.json  -> procesa un guion especifico
 """
 
+import re
 import sys
 import json
+import time
 import random
 import logging
 import traceback
@@ -27,6 +29,9 @@ from moviepy.editor import (
 from config.settings import settings
 from core.asset_manager import asset_manager
 
+VALID_IMG_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
+PAUSA_ENTRE_VIDEOS_SEG = 5
+
 # ---------- Configuracion ----------
 VIDEO_W, VIDEO_H = 1080, 1920
 FPS = 30
@@ -37,13 +42,15 @@ MUSIC_VOLUME = 0.12
 BASE_DIR = settings.BASE_DIR
 GUIONES_DIR = BASE_DIR / "data" / "guiones"
 PENDIENTES_DIR = GUIONES_DIR / "pendientes"
-PROCESADOS_DIR = GUIONES_DIR / "procesados"
+COMPLETADOS_DIR = GUIONES_DIR / "completados"
 FALLIDOS_DIR = GUIONES_DIR / "fallidos"
 OUTPUT_DIR = BASE_DIR / "output"
+ASSETS_VIDEOS_DIR = BASE_DIR / "assets"
+GENERALES_DIR = ASSETS_VIDEOS_DIR / "generales"
 MUSICA_DIR = BASE_DIR / "assets" / "musica"
 TMP_AUDIO_DIR = BASE_DIR / "data" / "tmp_audio"
 
-for d in (PENDIENTES_DIR, PROCESADOS_DIR, FALLIDOS_DIR, OUTPUT_DIR, TMP_AUDIO_DIR):
+for d in (PENDIENTES_DIR, COMPLETADOS_DIR, FALLIDOS_DIR, OUTPUT_DIR, TMP_AUDIO_DIR, GENERALES_DIR):
     d.mkdir(parents=True, exist_ok=True)
 
 logging.basicConfig(
@@ -85,27 +92,81 @@ def imagen_a_clip_vertical(ruta_imagen: Path, duracion: float) -> ImageClip:
     return clip.set_position("center")
 
 
-def elegir_musica_fondo():
-    if not MUSICA_DIR.exists():
-        return None
-    pistas = [p for p in MUSICA_DIR.iterdir() if p.suffix.lower() in (".mp3", ".wav", ".ogg")]
-    return random.choice(pistas) if pistas else None
+def determinar_carpeta_assets(ruta_guion: Path, guion: dict) -> Path:
+    """
+    Busca la carpeta de assets especifica del video: assets/video_NN/.
+    El numero se saca del campo 'carpeta'/'video_id' del guion si existe,
+    o si no, del prefijo numerico del nombre del archivo (ej. 01_rojo.json -> video_01).
+    Si no se encuentra ninguna carpeta numerada, usa assets/generales/.
+    """
+    candidato = guion.get("carpeta") or guion.get("video_id")
+    if candidato:
+        carpeta = ASSETS_VIDEOS_DIR / str(candidato)
+        if carpeta.exists():
+            return carpeta
+
+    match = re.match(r"(\d+)", ruta_guion.stem)
+    if match:
+        numero = match.group(1)
+        carpeta = ASSETS_VIDEOS_DIR / f"video_{int(numero):02d}"
+        if carpeta.exists():
+            return carpeta
+
+    logger.info(
+        "No se encontro carpeta numerada de assets para '%s'; se usa %s",
+        ruta_guion.name, GENERALES_DIR,
+    )
+    return GENERALES_DIR
+
+
+def elegir_imagen_de_carpeta(carpeta: Path, usadas: set) -> Path:
+    """Elige una imagen dentro de 'carpeta' (sin repetir mientras sea posible)."""
+    imagenes = sorted(
+        p for p in carpeta.iterdir()
+        if p.is_file() and p.suffix.lower() in VALID_IMG_EXTENSIONS
+    )
+    if not imagenes:
+        raise FileNotFoundError(f"No hay imagenes validas en {carpeta}")
+
+    disponibles = [p for p in imagenes if p not in usadas]
+    if not disponibles:
+        disponibles = imagenes  # ya se usaron todas, se permite repetir
+
+    elegida = random.choice(disponibles)
+    usadas.add(elegida)
+    return elegida
+
+
+def elegir_musica_fondo(carpeta: Path):
+    """Busca musica.mp3 en la carpeta del video; si no existe, prueba en generales/."""
+    candidatos = [carpeta / "musica.mp3", GENERALES_DIR / "musica.mp3"]
+    for pista in candidatos:
+        if pista.exists():
+            return pista
+
+    if MUSICA_DIR.exists():
+        pistas = [p for p in MUSICA_DIR.iterdir() if p.suffix.lower() in (".mp3", ".wav", ".ogg")]
+        if pistas:
+            return random.choice(pistas)
+
+    return None
 
 
 # ---------- Nucleo del ensamblaje ----------
 
-def construir_video(guion: dict, run_id: str) -> Path:
+def construir_video(guion: dict, run_id: str, ruta_guion: Path) -> Path:
     escenas = guion.get("escenas", [])
     if not escenas:
         raise ValueError("El guion no contiene 'escenas'.")
 
     titulo = guion.get("titulo", f"video_{run_id}")
+    carpeta_assets = determinar_carpeta_assets(ruta_guion, guion)
+    imagenes_usadas: set = set()
     clips_video = []
     audios_temporales = []
 
     for idx, escena in enumerate(escenas, start=1):
         texto = escena.get("texto", "").strip()
-        emocion = escena.get("emocion", "").strip()
 
         if not texto:
             logger.warning("Escena %s sin texto, se omite.", idx)
@@ -117,9 +178,11 @@ def construir_video(guion: dict, run_id: str) -> Path:
         duracion_escena = audio_clip.duration + AUDIO_PADDING
 
         try:
-            ruta_imagen = asset_manager.get_random_asset(category=emocion or None)
-        except ValueError:
-            logger.warning("Emocion '%s' no encontrada, se usa imagen aleatoria.", emocion)
+            ruta_imagen = elegir_imagen_de_carpeta(carpeta_assets, imagenes_usadas)
+        except FileNotFoundError:
+            logger.warning(
+                "Sin imagenes en %s, se usa banco general del robot MXL.", carpeta_assets
+            )
             ruta_imagen = asset_manager.get_random_asset()
 
         clip_img = imagen_a_clip_vertical(ruta_imagen, duracion_escena)
@@ -131,13 +194,13 @@ def construir_video(guion: dict, run_id: str) -> Path:
 
     video_final = concatenate_videoclips(clips_video, method="compose")
 
-    pista_musica = elegir_musica_fondo()
+    pista_musica = elegir_musica_fondo(carpeta_assets)
     if pista_musica:
         musica = AudioFileClip(str(pista_musica)).fx(afx.audio_loop, duration=video_final.duration)
         musica = musica.fx(afx.volumex, MUSIC_VOLUME)
         video_final = video_final.set_audio(CompositeAudioClip([video_final.audio, musica]))
     else:
-        logger.info("No se encontro musica en %s; el video sale solo con voz.", MUSICA_DIR)
+        logger.info("No se encontro musica para '%s'; el video sale solo con voz.", titulo)
 
     nombre_archivo = f"{titulo.replace(' ', '_').lower()}_{run_id}.mp4"
     salida = OUTPUT_DIR / nombre_archivo
@@ -166,10 +229,10 @@ def procesar_guion_individual(ruta_guion: Path) -> bool:
         with open(ruta_guion, "r", encoding="utf-8") as f:
             guion = json.load(f)
 
-        salida = construir_video(guion, run_id)
+        salida = construir_video(guion, run_id, ruta_guion)
         logger.info("VIDEO OK: %s", salida)
 
-        ruta_guion.rename(PROCESADOS_DIR / ruta_guion.name)
+        ruta_guion.rename(COMPLETADOS_DIR / ruta_guion.name)
         return True
 
     except Exception as e:
@@ -189,11 +252,15 @@ def procesar_lote():
         return
 
     exitosos = fallidos = 0
-    for ruta_guion in guiones:
+    for i, ruta_guion in enumerate(guiones):
         if procesar_guion_individual(ruta_guion):
             exitosos += 1
         else:
             fallidos += 1
+
+        if i < len(guiones) - 1:
+            logger.info("Pausa de %ss antes del siguiente video...", PAUSA_ENTRE_VIDEOS_SEG)
+            time.sleep(PAUSA_ENTRE_VIDEOS_SEG)
 
     logger.info("=== Lote terminado: %s OK, %s fallidos ===", exitosos, fallidos)
 
