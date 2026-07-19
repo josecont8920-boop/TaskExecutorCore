@@ -10,9 +10,8 @@ import json
 import logging
 import re
 
-import requests
-
 from config.settings import settings
+from core.http_retry import post_con_reintentos
 
 logger = logging.getLogger("contentbotmxl.gemini")
 
@@ -69,7 +68,7 @@ def generar_guion(tema: str, num_escenas: int = 4) -> dict:
         },
     }
 
-    resp = requests.post(
+    resp = post_con_reintentos(
         GEMINI_URL,
         params={"key": settings.GEMINI_API_KEY},
         json=body,

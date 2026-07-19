@@ -13,9 +13,8 @@ import json
 import logging
 from pathlib import Path
 
-import requests
-
 from config.settings import settings
+from core.http_retry import post_con_reintentos
 
 logger = logging.getLogger("contentbotmxl.tts")
 
@@ -69,9 +68,9 @@ def sintetizar_audio(texto: str, destino: Path) -> Path:
     token = _obtener_token_cuenta_servicio()
     if token:
         headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-        resp = requests.post(TTS_URL, headers=headers, json=payload, timeout=30)
+        resp = post_con_reintentos(TTS_URL, headers=headers, json=payload, timeout=30)
     elif settings.GOOGLE_TTS_API_KEY:
-        resp = requests.post(
+        resp = post_con_reintentos(
             TTS_URL, params={"key": settings.GOOGLE_TTS_API_KEY}, json=payload, timeout=30
         )
     else:
