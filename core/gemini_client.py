@@ -15,7 +15,7 @@ from core.http_retry import post_con_reintentos
 
 logger = logging.getLogger("contentbotmxl.gemini")
 
-GEMINI_MODEL = "gemini-2.5-flash"
+GEMINI_MODEL = "gemini-3.1-flash-lite"
 GEMINI_URL = (
     f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
 )
