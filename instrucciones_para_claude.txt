@@ -1,6 +1,0 @@
-Actualiza productor_mxl.py para que:
-1. Busque imágenes en carpetas numeradas (assets/video_01, assets/video_02, etc).
-2. Busque música en la misma carpeta del video (ejemplo: assets/video_01/musica.mp3).
-3. Si no encuentra una carpeta, use una carpeta general: assets/generales/.
-4. Mueva los archivos .json de data/guiones/pendientes/ a data/guiones/completados/ al terminar.
-5. Añada una pausa de 5 segundos entre cada video.
