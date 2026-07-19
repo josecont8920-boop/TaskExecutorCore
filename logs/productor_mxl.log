@@ -1,0 +1,9 @@
+2026-07-15 09:38:30,176 [INFO] No hay guiones pendientes en /home/josecolorvision/ContentBotMXL/data/guiones/pendientes
+2026-07-15 09:41:35,363 [INFO] === Procesando guion: prueba_colores.json (run_id=20260715_094135) ===
+2026-07-15 09:41:39,708 [INFO] No se encontro musica en /home/josecolorvision/ContentBotMXL/assets/musica; el video sale solo con voz.
+2026-07-15 09:44:39,482 [INFO] VIDEO OK: /home/josecolorvision/ContentBotMXL/output/los_colores_primarios_20260715_094135.mp4
+2026-07-15 09:44:39,485 [INFO] === Lote terminado: 1 OK, 0 fallidos ===
+2026-07-15 09:50:25,853 [INFO] === Procesando guion: historia_01.json (run_id=20260715_095025) ===
+2026-07-15 09:50:30,571 [INFO] No se encontro musica en /home/josecolorvision/ContentBotMXL/assets/musica; el video sale solo con voz.
+2026-07-15 09:53:55,779 [INFO] VIDEO OK: /home/josecolorvision/ContentBotMXL/output/la_abeja_trabajadora_20260715_095025.mp4
+2026-07-15 09:53:55,788 [INFO] === Lote terminado: 1 OK, 0 fallidos ===

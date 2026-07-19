@@ -33,7 +33,6 @@ class Settings:
     LOGS_DIR = LOGS_DIR
     DB_PATH = DB_PATH
 
-    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
     YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
 
