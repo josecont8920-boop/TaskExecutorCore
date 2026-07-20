@@ -6,10 +6,23 @@ Este servicio corre aislado: no usa base de datos externa ni de ningun tipo.
 Todo lo que necesita (assets, prompt_maestro.txt) vive versionado en este
 mismo repositorio de GitHub, y las unicas variables de entorno que usa son:
 
-  - GEMINI_API_KEY                      -> generacion de guion con Gemini
-  - GOOGLE_TTS_API_KEY                  -> voz, metodo API key (Google Cloud TTS)
-  - GOOGLE_APPLICATION_CREDENTIALS_JSON -> voz, cuenta de servicio (Google Cloud TTS)
-  - N8N_WEBHOOK_SECRET                  -> autenticacion del webhook llamado por n8n
+  - GEMINI_API_KEY     -> generacion de guion con Gemini
+  - TTS_VOZ            -> (opcional) voz de edge-tts a usar; por defecto es-MX-DaliaNeural
+  - N8N_WEBHOOK_SECRET -> autenticacion del webhook llamado por n8n
+
+La voz (TTS) ya no usa Google Cloud: corre con edge-tts, que es gratuito y
+no requiere ninguna API key ni cuenta de servicio.
+
+Ademas, este archivo expone las variables OPCIONALES de publicacion en
+YouTube (ver core/youtube_client.py). Son opcionales porque el motor de
+generacion de video debe seguir funcionando aunque no esten configuradas:
+solo se validan cuando efectivamente se llama al endpoint /webhook/publicar.
+
+  - YOUTUBE_CLIENT_ID       -> credencial OAuth2 (tipo Desktop App)
+  - YOUTUBE_CLIENT_SECRET   -> credencial OAuth2
+  - YOUTUBE_REFRESH_TOKEN   -> token de larga duracion (ver scripts/obtener_refresh_token_youtube.py)
+  - YOUTUBE_PRIVACY_STATUS  -> (opcional) private | unlisted | public; por defecto "private"
+  - YOUTUBE_MADE_FOR_KIDS   -> (opcional) "true"/"false"; por defecto "true" (contenido infantil)
 """
 
 import os
@@ -41,11 +54,17 @@ class Settings:
 
     # --- Unicas variables de IA/voz que este servicio tiene permitido usar ---
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-    GOOGLE_TTS_API_KEY = os.getenv("GOOGLE_TTS_API_KEY", "")
-    GOOGLE_APPLICATION_CREDENTIALS_JSON = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON", "")
+    TTS_VOZ = os.getenv("TTS_VOZ", "es-MX-DaliaNeural")
 
     # --- Autenticacion del webhook (Servidor 1 -> Servidor 2) ---
     N8N_WEBHOOK_SECRET = os.getenv("N8N_WEBHOOK_SECRET", "")
+
+    # --- Publicacion en YouTube (opcional, ver core/youtube_client.py) ---
+    YOUTUBE_CLIENT_ID = os.getenv("YOUTUBE_CLIENT_ID", "")
+    YOUTUBE_CLIENT_SECRET = os.getenv("YOUTUBE_CLIENT_SECRET", "")
+    YOUTUBE_REFRESH_TOKEN = os.getenv("YOUTUBE_REFRESH_TOKEN", "")
+    YOUTUBE_PRIVACY_STATUS = os.getenv("YOUTUBE_PRIVACY_STATUS", "private")
+    YOUTUBE_MADE_FOR_KIDS = os.getenv("YOUTUBE_MADE_FOR_KIDS", "true").strip().lower() == "true"
 
     APP_NAME = "ContentBotMXL"
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
@@ -79,16 +98,33 @@ class Settings:
         if not cls.GEMINI_API_KEY:
             raise RuntimeError("Falta GEMINI_API_KEY en las variables de entorno de Railway.")
 
-        if not (cls.GOOGLE_TTS_API_KEY or cls.GOOGLE_APPLICATION_CREDENTIALS_JSON):
-            raise RuntimeError(
-                "Falta configurar la voz: define GOOGLE_TTS_API_KEY o "
-                "GOOGLE_APPLICATION_CREDENTIALS_JSON en Railway."
-            )
-
         if not cls.N8N_WEBHOOK_SECRET:
             raise RuntimeError("Falta N8N_WEBHOOK_SECRET: el webhook no puede quedar sin proteger.")
 
         return image_count
+
+    @classmethod
+    def validate_youtube(cls):
+        """
+        Verifica las credenciales de YouTube. A diferencia de validate(), esto
+        NO se corre al arrancar el servicio -- se llama solo cuando llega una
+        peticion a /webhook/publicar, para que la generacion de video siga
+        funcionando aunque YouTube todavia no este configurado.
+        """
+        faltantes = [
+            nombre for nombre, valor in (
+                ("YOUTUBE_CLIENT_ID", cls.YOUTUBE_CLIENT_ID),
+                ("YOUTUBE_CLIENT_SECRET", cls.YOUTUBE_CLIENT_SECRET),
+                ("YOUTUBE_REFRESH_TOKEN", cls.YOUTUBE_REFRESH_TOKEN),
+            )
+            if not valor
+        ]
+        if faltantes:
+            raise RuntimeError(
+                "Faltan variables de entorno para publicar en YouTube: "
+                + ", ".join(faltantes)
+                + ". Corre scripts/obtener_refresh_token_youtube.py para conseguirlas."
+            )
 
 
 settings = Settings()

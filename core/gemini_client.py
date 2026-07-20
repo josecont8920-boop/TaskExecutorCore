@@ -15,7 +15,7 @@ from core.http_retry import post_con_reintentos
 
 logger = logging.getLogger("contentbotmxl.gemini")
 
-GEMINI_MODEL = "gemini-2.5-flash"
+GEMINI_MODEL = "gemini-3.1-flash-lite"
 GEMINI_URL = (
     f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
 )
@@ -74,7 +74,8 @@ def generar_guion(tema: str, num_escenas: int = 4) -> dict:
         json=body,
         timeout=60,
     )
-    resp.raise_for_status()
+    if resp.status_code >= 400:
+        raise RuntimeError(f"Gemini devolvio un error ({resp.status_code}): {resp.text}")
     data = resp.json()
 
     try:
