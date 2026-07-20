@@ -1,5 +1,119 @@
+"""
+core/youtube_client.py
+Cliente de YouTube Data API v3 para ContentBotMXL.
+
+Usa las credenciales OAuth2 de larga duracion (refresh token) generadas UNA
+vez con scripts/obtener_refresh_token_youtube.py y guardadas como variables
+de entorno en Railway (ver config/settings.py):
+
+    YOUTUBE_CLIENT_ID
+    YOUTUBE_CLIENT_SECRET
+    YOUTUBE_REFRESH_TOKEN
+    YOUTUBE_PRIVACY_STATUS   (opcional, default "private")
+    YOUTUBE_MADE_FOR_KIDS    (opcional, default "true")
+"""
+
 import os
+import logging
+
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
+
+from config.settings import settings
+
+logger = logging.getLogger("contentbotmxl.youtube_client")
+
+TOKEN_URI = "https://oauth2.googleapis.com/token"
+SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+
+
+def _build_service():
+    """Reconstruye el servicio de YouTube a partir del refresh token guardado."""
+    settings.validate_youtube()
+
+    credenciales = Credentials(
+        token=None,  # se obtiene automaticamente con el refresh_token al primer uso
+        refresh_token=settings.YOUTUBE_REFRESH_TOKEN,
+        token_uri=TOKEN_URI,
+        client_id=settings.YOUTUBE_CLIENT_ID,
+        client_secret=settings.YOUTUBE_CLIENT_SECRET,
+        scopes=SCOPES,
+    )
+    return build("youtube", "v3", credentials=credenciales, cache_discovery=False)
+
+
+def subir_video(
+    ruta_video,
+    titulo: str,
+    descripcion: str = "",
+    tags: list | None = None,
+    privacy_status: str | None = None,
+    ruta_miniatura: str | None = None,
+) -> dict:
+    """
+    Sube un video (mp4) a YouTube usando las credenciales configuradas.
+
+    Args:
+        ruta_video: ruta local al archivo .mp4 (Path o str).
+        titulo: titulo del video en YouTube.
+        descripcion: descripcion del video.
+        tags: lista de etiquetas/tags.
+        privacy_status: "private" | "unlisted" | "public". Si es None, usa
+            settings.YOUTUBE_PRIVACY_STATUS.
+        ruta_miniatura: opcional, ruta a una imagen para usar como portada.
+
+    Devuelve un dict con video_id, url y el privacy_status/madeForKids usados.
+    """
+    ruta_video = str(ruta_video)
+    if not os.path.exists(ruta_video):
+        raise FileNotFoundError(f"No se encontro el video a subir: {ruta_video}")
+
+    youtube = _build_service()
+
+    status_final = privacy_status or settings.YOUTUBE_PRIVACY_STATUS
+
+    body = {
+        "snippet": {
+            "title": titulo,
+            "description": descripcion,
+            "tags": tags or [],
+            "categoryId": "27",  # "Education"; ajustar si prefieren otra categoria
+        },
+        "status": {
+            "privacyStatus": status_final,
+            # Requisito legal (COPPA/US, y equivalentes en otros paises) para
+            # contenido dirigido a ninos: hay que declararlo explicitamente.
+            "selfDeclaredMadeForKids": settings.YOUTUBE_MADE_FOR_KIDS,
+        },
+    }
+
+    media = MediaFileUpload(ruta_video, chunksize=-1, resumable=True, mimetype="video/mp4")
+
+    logger.info("Subiendo a YouTube: %s (privacy=%s, madeForKids=%s)",
+                titulo, status_final, settings.YOUTUBE_MADE_FOR_KIDS)
+
+    request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
+
+    response = None
+    while response is None:
+        status_progreso, response = request.next_chunk()
+        if status_progreso:
+            logger.info("Progreso de subida: %d%%", int(status_progreso.progress() * 100))
+
+    video_id = response["id"]
+    logger.info("Video subido a YouTube con id=%s", video_id)
+
+    if ruta_miniatura and os.path.exists(ruta_miniatura):
+        subir_miniatura_video(youtube, video_id, ruta_miniatura)
+
+    return {
+        "video_id": video_id,
+        "url": f"https://youtu.be/{video_id}",
+        "privacy_status": status_final,
+        "made_for_kids": settings.YOUTUBE_MADE_FOR_KIDS,
+    }
+
 
 def subir_miniatura_video(youtube_service, video_id, ruta_imagen):
     """
