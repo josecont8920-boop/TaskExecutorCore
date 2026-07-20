@@ -1,91 +1,46 @@
 """
 core/tts_client.py
-Motor de voz: sintetiza audio con Google Cloud Text-to-Speech.
+Motor de voz: sintetiza audio con edge-tts (las voces neuronales de
+Microsoft Edge, las mismas que usa la funcion "Leer en voz alta" del
+navegador).
 
-Prioriza la cuenta de servicio (GOOGLE_APPLICATION_CREDENTIALS_JSON, la
-cuenta de servicio de Google Cloud dedicada al motor de voz). Si no esta
-configurada, recurre a GOOGLE_TTS_API_KEY como metodo alterno. No usa
-ninguna otra variable ni servicio externo.
+Es un servicio gratuito: no requiere API key, cuenta, ni tarjeta, y no
+depende de ninguna credencial de Google Cloud. La voz se elige con la
+variable de entorno opcional TTS_VOZ (ver config/settings.py).
 """
 
-import base64
-import json
+import asyncio
 import logging
 from pathlib import Path
 
+import edge_tts
+
 from config.settings import settings
-from core.http_retry import post_con_reintentos
 
 logger = logging.getLogger("contentbotmxl.tts")
 
-TTS_URL = "https://texttospeech.googleapis.com/v1/text:synthesize"
-VOZ_NOMBRE = "es-US-Neural2-A"
-VOZ_IDIOMA = "es-US"
 
-_credentials = None  # cache de las credenciales de la cuenta de servicio, en memoria
-
-
-def _obtener_token_cuenta_servicio() -> str | None:
-    """Obtiene un access token OAuth2 a partir de GOOGLE_APPLICATION_CREDENTIALS_JSON."""
-    global _credentials
-
-    if not settings.GOOGLE_APPLICATION_CREDENTIALS_JSON:
-        return None
-
-    from google.oauth2 import service_account
-    from google.auth.transport.requests import Request
-
-    if _credentials is None:
-        try:
-            info = json.loads(settings.GOOGLE_APPLICATION_CREDENTIALS_JSON)
-        except json.JSONDecodeError as e:
-            raise RuntimeError(
-                "GOOGLE_APPLICATION_CREDENTIALS_JSON no contiene un JSON valido. "
-                "Debe ser el contenido completo del archivo de la cuenta de servicio, "
-                "pegado tal cual como valor de la variable de entorno."
-            ) from e
-        _credentials = service_account.Credentials.from_service_account_info(
-            info, scopes=["https://www.googleapis.com/auth/cloud-platform"]
-        )
-
-    if not _credentials.valid:
-        _credentials.refresh(Request())
-
-    return _credentials.token
+async def _sintetizar_async(texto: str, destino: Path, voz: str) -> None:
+    comunicador = edge_tts.Communicate(texto, voz)
+    await comunicador.save(str(destino))
 
 
 def sintetizar_audio(texto: str, destino: Path) -> Path:
     """
     Sintetiza `texto` a voz en espanol y guarda el mp3 resultante en `destino`.
-    Usa la cuenta de servicio si esta disponible; si no, GOOGLE_TTS_API_KEY.
+    Usa edge-tts (motor de Microsoft Edge); no requiere ninguna credencial.
     """
-    payload = {
-        "input": {"text": texto},
-        "voice": {"languageCode": VOZ_IDIOMA, "name": VOZ_NOMBRE},
-        "audioConfig": {"audioEncoding": "MP3"},
-    }
-
-    token = _obtener_token_cuenta_servicio()
-    if token:
-        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-        resp = post_con_reintentos(TTS_URL, headers=headers, json=payload, timeout=30)
-    elif settings.GOOGLE_TTS_API_KEY:
-        resp = post_con_reintentos(
-            TTS_URL, params={"key": settings.GOOGLE_TTS_API_KEY}, json=payload, timeout=30
-        )
-    else:
-        raise RuntimeError(
-            "No hay credenciales de voz configuradas: define GOOGLE_APPLICATION_CREDENTIALS_JSON "
-            "o GOOGLE_TTS_API_KEY en las variables de entorno de Railway."
-        )
-
-    if resp.status_code >= 400:
-        raise RuntimeError(f"Google TTS devolvio un error ({resp.status_code}): {resp.text}")
-
-    audio_b64 = resp.json().get("audioContent")
-    if not audio_b64:
-        raise RuntimeError(f"Google TTS no devolvio audio: {resp.json()}")
-
+    voz = settings.TTS_VOZ
     destino.parent.mkdir(parents=True, exist_ok=True)
-    destino.write_bytes(base64.b64decode(audio_b64))
+
+    try:
+        asyncio.run(_sintetizar_async(texto, destino, voz))
+    except Exception as e:
+        raise RuntimeError(
+            f"edge-tts fallo al sintetizar el audio (voz={voz}): {e}"
+        ) from e
+
+    if not destino.exists() or destino.stat().st_size == 0:
+        raise RuntimeError("edge-tts no genero ningun archivo de audio (resultado vacio).")
+
     return destino
