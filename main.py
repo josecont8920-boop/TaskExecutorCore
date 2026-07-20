@@ -72,6 +72,12 @@ class GenerarRequest(BaseModel):
     titulo_youtube: str | None = Field(default=None, description="Requerido si auto_publicar=true")
     descripcion_youtube: str = Field(default="")
     tags_youtube: list[str] = Field(default_factory=list)
+    miniatura: str | None = Field(
+        default=None,
+        description="Ruta relativa al repo de una imagen para usar como portada "
+                    "(ej. 'assets/mxl_robot/feliz/mxl_feliz_03.png'). Si se omite, "
+                    "se usa automaticamente la imagen de la primera escena del video.",
+    )
     privacy_status: str | None = Field(
         default=None,
         description="private | unlisted | public. Se ignora si se envia publicar_en.",
@@ -92,6 +98,11 @@ class PublicarRequest(BaseModel):
     titulo: str = Field(..., min_length=3, description="Titulo del video en YouTube")
     descripcion: str = Field(default="", description="Descripcion del video en YouTube")
     tags: list[str] = Field(default_factory=list, description="Tags/etiquetas del video")
+    miniatura: str | None = Field(
+        default=None,
+        description="Ruta relativa al repo de una imagen para usar como portada "
+                    "(ej. 'assets/mxl_robot/feliz/mxl_feliz_03.png'). Opcional.",
+    )
     privacy_status: str | None = Field(
         default=None,
         description="private | unlisted | public. Si se omite usa YOUTUBE_PRIVACY_STATUS. "
@@ -156,13 +167,23 @@ def _procesar_en_segundo_plano(payload: dict) -> None:
 
         if payload.get("auto_publicar"):
             ruta_video = productor_mxl.OUTPUT_DIR / resultado["archivo"]
-            logger.info("[BG] auto_publicar=true, subiendo a YouTube...")
+
+            miniatura_rel = payload.get("miniatura")
+            if not miniatura_rel and resultado.get("escenas"):
+                # Sin portada explicita: se usa la imagen de la primera escena.
+                miniatura_rel = resultado["escenas"][0].get("imagen")
+            ruta_miniatura = (
+                str(settings.BASE_DIR / miniatura_rel) if miniatura_rel else None
+            )
+
+            logger.info("[BG] auto_publicar=true, subiendo a YouTube (miniatura=%s)...", ruta_miniatura)
             info_youtube = youtube_client.subir_video(
                 ruta_video=ruta_video,
                 titulo=payload.get("titulo_youtube") or resultado["titulo"],
                 descripcion=payload.get("descripcion_youtube", ""),
                 tags=payload.get("tags_youtube", []),
                 privacy_status=payload.get("privacy_status"),
+                ruta_miniatura=ruta_miniatura,
                 publicar_en=payload.get("publicar_en"),
             )
             resultado_final["youtube"] = info_youtube
@@ -266,7 +287,9 @@ def publicar(
     if productor_mxl.OUTPUT_DIR.resolve() not in ruta.parents or not ruta.exists():
         raise HTTPException(status_code=404, detail="Archivo no encontrado en output/")
 
-    logger.info("n8n solicito publicar en YouTube: %s", payload.nombre_archivo)
+    ruta_miniatura = str(settings.BASE_DIR / payload.miniatura) if payload.miniatura else None
+
+    logger.info("n8n solicito publicar en YouTube: %s (miniatura=%s)", payload.nombre_archivo, ruta_miniatura)
     try:
         resultado = youtube_client.subir_video(
             ruta_video=ruta,
@@ -274,6 +297,7 @@ def publicar(
             descripcion=payload.descripcion,
             tags=payload.tags,
             privacy_status=payload.privacy_status,
+            ruta_miniatura=ruta_miniatura,
             publicar_en=payload.publicar_en,
         )
     except Exception as e:
