@@ -81,6 +81,7 @@ class GenerarRequest(BaseModel):
         description="Fecha/hora ISO 8601 con zona horaria (ej. '2026-07-25T15:00:00Z') para "
                     "programar la publicacion en YouTube. Mientras tanto el video queda oculto.",
     )
+    privacy_status: str | None = Field(default=None, description="private | unlisted | public")
 
 
 class PublicarRequest(BaseModel):

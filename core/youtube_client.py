@@ -71,6 +71,10 @@ def subir_video(
 
     Devuelve un dict con video_id, url, privacy_status/madeForKids usados y,
     si se programo, publicar_en.
+            settings.YOUTUBE_PRIVACY_STATUS.
+        ruta_miniatura: opcional, ruta a una imagen para usar como portada.
+
+    Devuelve un dict con video_id, url y el privacy_status/madeForKids usados.
     """
     ruta_video = str(ruta_video)
     if not os.path.exists(ruta_video):
@@ -111,6 +115,8 @@ def subir_video(
         "Subiendo a YouTube: %s (privacy=%s, madeForKids=%s, publicar_en=%s)",
         titulo, status_final, settings.YOUTUBE_MADE_FOR_KIDS, publicar_en,
     )
+    logger.info("Subiendo a YouTube: %s (privacy=%s, madeForKids=%s)",
+                titulo, status_final, settings.YOUTUBE_MADE_FOR_KIDS)
 
     request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
 
