@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Header, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse
 import os
 
@@ -9,6 +9,13 @@ VIDEOS_DIR = "videos"
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
+
+@app.post("/webhook/generar")
+async def recibir_webhook_generar(request: Request, x_webhook_secret: str = Header(None)):
+    # Validar opcionalmente el secreto si lo deseas
+    datos = await request.json()
+    # Aquí puedes procesar la data que te manda n8n
+    return {"status": "success", "message": "Webhook recibido correctamente", "data": datos}
 
 @app.get("/videos", response_class=HTMLResponse)
 def listar_y_descargar_videos():
