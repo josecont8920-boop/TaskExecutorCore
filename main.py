@@ -44,11 +44,18 @@ from pydantic import BaseModel, Field
 from config.settings import settings
 import productor_mxl
 from core import youtube_client
+from core import db
 
 logging.basicConfig(level=settings.LOG_LEVEL)
 logger = logging.getLogger("contentbotmxl")
 
 app = FastAPI(title=settings.APP_NAME)
+
+
+@app.on_event("startup")
+def _al_arrancar():
+    db.inicializar()
+
 
 CALLBACK_TIMEOUT_SEG = 15
 CALLBACK_MAX_INTENTOS = 3
@@ -165,6 +172,11 @@ def _procesar_en_segundo_plano(payload: dict) -> None:
         resultado = productor_mxl.generar_video_desde_tema(tema, payload.get("num_escenas", 4))
         resultado_final = {"status": "listo", "tema": tema, **resultado}
 
+        try:
+            db.registrar_generado(resultado["run_id"], resultado["titulo"], resultado["archivo"])
+        except Exception:
+            logger.exception("[BG] No se pudo registrar 'generado' en la base de datos (no bloqueante).")
+
         if payload.get("auto_publicar"):
             ruta_video = productor_mxl.OUTPUT_DIR / resultado["archivo"]
 
@@ -188,11 +200,24 @@ def _procesar_en_segundo_plano(payload: dict) -> None:
             )
             resultado_final["youtube"] = info_youtube
 
+            try:
+                db.registrar_subido(
+                    resultado["run_id"], info_youtube.get("video_id", ""), info_youtube.get("url", "")
+                )
+            except Exception:
+                logger.exception("[BG] No se pudo registrar 'subido' en la base de datos (no bloqueante).")
+
         logger.info("[BG] Trabajo completo para tema '%s'.", tema)
 
     except Exception as e:
         logger.exception("[BG] Fallo procesando tema '%s'", tema)
         resultado_final = {"status": "error", "tema": tema, "mensaje": str(e)}
+        try:
+            run_id_conocido = locals().get("resultado", {}).get("run_id")
+            if run_id_conocido:
+                db.registrar_error(run_id_conocido, str(e))
+        except Exception:
+            logger.exception("[BG] No se pudo registrar 'error' en la base de datos (no bloqueante).")
 
     if callback_url:
         _notificar_callback(callback_url, resultado_final)
@@ -305,6 +330,83 @@ def publicar(
         raise HTTPException(status_code=500, detail=str(e))
 
     return resultado
+
+
+class ReintentarPublicarRequest(BaseModel):
+    run_id: str = Field(..., min_length=3, description="El run_id que quedo registrado en la base de datos")
+    titulo: str | None = Field(default=None, description="Si se omite, usa el titulo guardado")
+    descripcion: str = Field(default="")
+    tags: list[str] = Field(default_factory=list)
+    miniatura: str | None = Field(default=None)
+    privacy_status: str | None = Field(default=None)
+    publicar_en: str | None = Field(default=None)
+
+
+@app.post("/webhook/reintentar_publicar")
+def reintentar_publicar(
+    payload: ReintentarPublicarRequest,
+    x_webhook_secret: str | None = Header(default=None),
+):
+    """
+    Para cuando la subida a YouTube fallo (ej. token vencido) pero el video
+    YA se genero: sube el mp4 que quedo en output/ sin volver a gastar
+    tiempo/costo regenerando guion+voz+render con Gemini/edge-tts/moviepy.
+
+    Requiere DATABASE_URL configurada (ver core/db.py) y que el contenedor
+    de Railway NO se haya reiniciado desde que se genero ese video (el
+    disco es efimero: un redeploy borra los mp4 ya generados).
+    """
+    verificar_origen(x_webhook_secret)
+
+    if not db.habilitada():
+        raise HTTPException(status_code=400, detail="DATABASE_URL no esta configurada; no hay registro que consultar.")
+
+    registro = db.obtener_por_run_id(payload.run_id)
+    if not registro:
+        raise HTTPException(status_code=404, detail=f"No hay ningun video registrado con run_id={payload.run_id}")
+    if not registro.get("archivo"):
+        raise HTTPException(status_code=400, detail="Ese registro no tiene un archivo asociado todavia.")
+
+    ruta = (productor_mxl.OUTPUT_DIR / registro["archivo"]).resolve()
+    if productor_mxl.OUTPUT_DIR.resolve() not in ruta.parents or not ruta.exists():
+        raise HTTPException(
+            status_code=410,
+            detail=f"El archivo '{registro['archivo']}' ya no esta en el disco (probablemente hubo un "
+                    "redeploy desde que se genero). Hay que volver a llamar a /webhook/generar.",
+        )
+
+    ruta_miniatura = str(settings.BASE_DIR / payload.miniatura) if payload.miniatura else None
+
+    try:
+        resultado = youtube_client.subir_video(
+            ruta_video=ruta,
+            titulo=payload.titulo or registro.get("titulo") or registro["tema"],
+            descripcion=payload.descripcion,
+            tags=payload.tags,
+            privacy_status=payload.privacy_status,
+            ruta_miniatura=ruta_miniatura,
+            publicar_en=payload.publicar_en,
+        )
+    except Exception as e:
+        logger.exception("Fallo reintentando publicar run_id=%s", payload.run_id)
+        db.registrar_error(payload.run_id, str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+    db.registrar_subido(payload.run_id, resultado.get("video_id", ""), resultado.get("url", ""))
+    return resultado
+
+
+@app.get("/videos")
+def listar_videos(
+    pendientes: bool = False,
+    x_webhook_secret: str | None = Header(default=None),
+):
+    """Historial de videos registrados en la base de datos. pendientes=true
+    filtra solo los que se generaron pero nunca llegaron a subirse."""
+    verificar_origen(x_webhook_secret)
+    if not db.habilitada():
+        raise HTTPException(status_code=400, detail="DATABASE_URL no esta configurada.")
+    return db.listar_pendientes_de_subir() if pendientes else db.listar_recientes()
 
 
 if __name__ == "__main__":
