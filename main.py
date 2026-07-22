@@ -2,10 +2,13 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, FileResponse
 import os
 
-# Inicialización de la aplicación FastAPI
 app = FastAPI()
 
 VIDEOS_DIR = "videos"
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
 
 @app.get("/videos", response_class=HTMLResponse)
 def listar_y_descargar_videos():
@@ -30,3 +33,8 @@ def descargar_video_archivo(nombre_archivo: str):
     if os.path.exists(ruta_archivo):
         return FileResponse(ruta_archivo, media_type="video/mp4", filename=nombre_archivo)
     return {"detail": "Video no encontrado"}
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
