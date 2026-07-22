@@ -1,5 +1,9 @@
+from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, FileResponse
 import os
+
+# Inicialización de la aplicación FastAPI
+app = FastAPI()
 
 VIDEOS_DIR = "videos"
 
