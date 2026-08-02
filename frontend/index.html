@@ -2,30 +2,69 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>TaskExecutorCore - Panel</title>
+    <title>TaskExecutorCore - Panel de Flujo en Vivo</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-900 text-white p-8">
-    <div class="max-w-xl mx-auto bg-gray-800 p-6 rounded-lg shadow-lg">
-        <h1 class="text-2xl font-bold mb-4 text-cyan-400">TaskExecutorCore Dashboard</h1>
-        <p class="text-gray-400 mb-6">Panel de control y ejecución de tareas automatizadas.</p>
+    <div class="max-w-2xl mx-auto bg-gray-800 p-6 rounded-lg shadow-lg border border-gray-700">
+        <h1 class="text-2xl font-bold mb-2 text-cyan-400">TaskExecutorCore Control Panel</h1>
+        <p class="text-gray-400 mb-6 text-sm">Monitoreo y trazabilidad de flujos automatizados en tiempo real.</p>
         
-        <button onclick="ejecutarFlujo()" class="bg-cyan-500 hover:bg-cyan-600 text-gray-900 font-bold py-2 px-4 rounded w-full">
-            Ejecutar Flujo de Prueba
+        <div class="mb-6 bg-gray-900 p-4 rounded border border-gray-700">
+            <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Estado del Sistema</h2>
+            <div id="status-badge" class="inline-block px-3 py-1 rounded text-xs font-bold bg-yellow-500 text-gray-900 mb-2">Inactivo</div>
+            <p id="status-step" class="text-sm text-gray-300">Esperando órdenes de ejecución...</p>
+        </div>
+
+        <button onclick="ejecutarFlujoReal()" class="bg-cyan-500 hover:bg-cyan-600 text-gray-900 font-bold py-3 px-4 rounded w-full transition duration-200 shadow">
+            Iniciar Flujo y Monitorear Pasos
         </button>
         
-        <div id="resultado" class="mt-4 p-4 bg-gray-900 rounded hidden text-sm font-mono"></div>
+        <div class="mt-6">
+            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Detalles y Datos Organizados:</h3>
+            <div id="resultado" class="p-4 bg-gray-900 rounded text-xs font-mono text-cyan-300 overflow-x-auto border border-gray-700 h-48 flex items-center justify-center text-gray-500">
+                Aún no hay datos cargados. Presiona iniciar flujo.
+            </div>
+        </div>
     </div>
 
     <script>
-        async function ejecutarFlujo() {
+        async function consultarEstado() {
+            try {
+                let res = await fetch('/api/flow-status');
+                let data = await res.json();
+                actualizarUI(data);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function actualizarUI(data) {
+            const badge = document.getElementById("status-badge");
+            const step = document.getElementById("status-step");
             const resDiv = document.getElementById("resultado");
-            resDiv.classList.remove("hidden");
-            resDiv.innerText = "Ejecutando en el servidor...";
+
+            badge.innerText = data.status;
+            if(data.status === "Completado") {
+                badge.className = "inline-block px-3 py-1 rounded text-xs font-bold bg-green-500 text-gray-900 mb-2";
+            } else if(data.status === "Ejecutando") {
+                badge.className = "inline-block px-3 py-1 rounded text-xs font-bold bg-blue-500 text-white mb-2";
+            } else if(data.status === "Error") {
+                badge.className = "inline-block px-3 py-1 rounded text-xs font-bold bg-red-500 text-white mb-2";
+            }
+
+            step.innerText = "Paso actual: " + data.step;
+            resDiv.innerHTML = `<pre class="text-left w-full">${JSON.stringify(data, null, 2)}</pre>`;
+        }
+
+        async function ejecutarFlujoReal() {
+            const resDiv = document.getElementById("resultado");
+            resDiv.innerHTML = "Disparando flujo en el servidor...";
 
             const payload = {
                 tasks: [
-                    { profile_name: "web_user_1", url: "https://example.com/checkout", data: { product: "A" }, critical: true }
+                    { profile_name: "mxl_user_1", url: "https://example.com/checkout", data: { item: "Servicio Pro", tarjeta: "****-****-****-4128" }, critical: true },
+                    { profile_name: "mxl_user_2", url: "https://example.com/verify", data: { item: "Validación de Nodo", tarjeta: "****-****-****-4128" }, critical: false }
                 ]
             };
 
@@ -36,9 +75,10 @@
                     body: JSON.stringify(payload)
                 });
                 let data = await response.json();
-                resDiv.innerText = JSON.stringify(data, null, 2);
+                actualizarUI(data.state);
             } catch (err) {
-                resDiv.innerText = "Error: " + err;
+                document.getElementById("status-badge").innerText = "Error";
+                resDiv.innerText = "Error de conexión: " + err;
             }
         }
     </script>
