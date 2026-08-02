@@ -23,7 +23,12 @@ def serve_frontend():
     if os.path.exists(path):
         with open(path, "r", encoding="utf-8") as f:
             return f.read()
-    return "<h1>Frontend no encontrado</h1>"
+    return "<h1>TaskExecutorCore Online</h1>"
+
+@app.get("/health")
+@app.get("/api/health")
+def health_check():
+    return {"status": "online", "system": "TaskExecutorCore"}
 
 @app.post("/api/run-flow")
 def run_flow(request: FlowRequest):
@@ -33,7 +38,3 @@ def run_flow(request: FlowRequest):
         return {"status": "success", "message": "Flujo ejecutado correctamente en el servidor."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/api/health")
-def health_check():
-    return {"status": "online", "system": "TaskExecutorCore"}
