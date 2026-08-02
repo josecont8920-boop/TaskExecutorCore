@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>TaskExecutorCore - Panel con Identificadores</title>
+    <title>TaskExecutorCore - Panel con Copiar Tarjeta</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-950 text-white min-h-screen p-6">
@@ -10,7 +10,7 @@
         <header class="mb-8 flex justify-between items-center border-b border-gray-800 pb-4">
             <div>
                 <h1 class="text-3xl font-bold text-cyan-400">TaskExecutorCore</h1>
-                <p class="text-gray-400 text-sm">Panel de Control con Identificadores de Estado en Vivo</p>
+                <p class="text-gray-400 text-sm">Panel de Control con Copiado Rápido de Tarjetas</p>
             </div>
             <div id="status-badge" class="px-4 py-1.5 rounded-full text-xs font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
                 Inactivo
@@ -37,10 +37,10 @@
             </div>
         </div>
 
-        <h2 class="text-lg font-semibold text-gray-300 mb-4">Tarjetas de Procesos e Identificadores</h2>
+        <h2 class="text-lg font-semibold text-gray-300 mb-4">Tarjetas de Procesos</h2>
         <div id="task-cards-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="bg-gray-900 border border-gray-800 p-5 rounded-xl text-gray-500 text-center col-span-2">
-                Presiona "Ejecutar Flujo" para ver los identificadores de estado.
+                Presiona "Ejecutar Flujo" para cargar las tarjetas y habilitar el copiado.
             </div>
         </div>
     </div>
@@ -74,13 +74,15 @@
             }
 
             container.innerHTML = "";
-            data.details.forEach((task) => {
+            data.details.forEach((task, index) => {
                 let exito = task.success !== false; 
                 let borderColor = exito ? 'border-green-500/40 bg-green-950/10' : 'border-red-500/40 bg-red-950/10';
                 let indicatorColor = exito ? 'bg-green-500' : 'bg-red-500';
                 let statusBadge = exito 
-                    ? '<span class="bg-green-500/20 text-green-400 border border-green-500/30 px-2.5 py-0.5 rounded text-xs font-bold">✅ READY / OK</span>' 
+                    ? '<span class="bg-green-500/20 text-green-400 border border-green-500/30 px-2.5 py-0.5 rounded text-xs font-bold">✅ READY</span>' 
                     : '<span class="bg-red-500/20 text-red-400 border border-red-500/30 px-2.5 py-0.5 rounded text-xs font-bold">❌ FALLÓ</span>';
+
+                let tarjetaTexto = task.data.tarjeta || '****-****-****-4128';
 
                 container.innerHTML += `
                     <div class="bg-gray-900 border ${borderColor} p-5 rounded-xl shadow-md relative overflow-hidden">
@@ -90,15 +92,35 @@
                             ${statusBadge}
                         </div>
                         <p class="text-xs text-gray-400 mb-3 truncate"><strong>URL:</strong> ${task.url}</p>
-                        <div class="bg-gray-950 p-3 rounded-lg border border-gray-800 text-xs space-y-1 mb-3">
+                        <div class="bg-gray-950 p-3 rounded-lg border border-gray-800 text-xs space-y-2 mb-3">
                             <div class="text-gray-300"><strong>Ítem:</strong> ${task.data.item || 'N/A'}</div>
-                            <div class="text-gray-300 font-mono"><strong>Tarjeta:</strong> ${task.data.tarjeta || 'N/A'}</div>
+                            <div class="flex justify-between items-center">
+                                <span class="font-mono text-cyan-200"><strong>Tarjeta:</strong> <span id="card-num-${index}">${tarjetaTexto}</span></span>
+                                <button onclick="copiarTarjeta('card-num-${index}', this)" class="bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 px-2.5 py-1 rounded text-xs font-semibold transition">
+                                    📋 Copiar
+                                </button>
+                            </div>
                         </div>
                         <div class="bg-gray-950/50 border border-gray-800 p-2.5 rounded-lg text-xs text-gray-300">
-                            <strong>Diagnóstico IA:</strong> ${task.ai_analysis || 'Verificado con éxito'}
+                            <strong>Diagnóstico:</strong> ${task.ai_analysis || 'Verificado con éxito'}
                         </div>
                     </div>
                 `;
+            });
+        }
+
+        function copiarTarjeta(elementId, btn) {
+            const textToCopy = document.getElementById(elementId).innerText;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                let originalText = btn.innerText;
+                btn.innerText = "¡Copiada!";
+                btn.className = "bg-green-500/20 text-green-300 border border-green-500/40 px-2.5 py-1 rounded text-xs font-semibold transition";
+                setTimeout(() => {
+                    btn.innerText = originalText;
+                    btn.className = "bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 px-2.5 py-1 rounded text-xs font-semibold transition";
+                }, 2000);
+            }).catch(err => {
+                alert("Error al copiar: " + err);
             });
         }
 
@@ -106,8 +128,8 @@
             document.getElementById("global-status").innerText = "Ejecutando...";
             const payload = {
                 tasks: [
-                    { profile_name: "mxl_user_1", url: "https://example.com/checkout", data: { item: "Servicio Automatizado", tarjeta: "****-****-****-4128" }, critical: true, success: true },
-                    { profile_name: "mxl_user_2", url: "https://example.com/verify", data: { item: "Validación Nodo", tarjeta: "****-****-****-4128" }, critical: false, success: true }
+                    { profile_name: "mxl_user_1", url: "https://example.com/checkout", data: { item: "Servicio Automatizado", tarjeta: "4242-4128-3094-4128" }, critical: true, success: true },
+                    { profile_name: "mxl_user_2", url: "https://example.com/verify", data: { item: "Validación Nodo", tarjeta: "5555-3041-1128-4128" }, critical: false, success: true }
                 ]
             };
 
