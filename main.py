@@ -1,14 +1,7 @@
-import sys
 import os
-import json
-import logging
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-def main():
-    logger.info("🚀 Iniciando TaskExecutorCore en Railway...")
-    print("TaskExecutorCore Online y Operativo.")
+import uvicorn
+from server import app
 
 if __name__ == "__main__":
-    main()
+    port = int(os.environ.get("PORT", 8080))
+    uvicorn.run(app, host="0.0.0.0", port=port)
