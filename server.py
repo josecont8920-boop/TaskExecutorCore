@@ -1,13 +1,15 @@
+import sys
+import os
+import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from typing import List, Dict, Any
-from core.orchestrator import Orchestrator
-import os
-import uvicorn
+
+# Asegurar que la ruta actual esté en el path de Python
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 app = FastAPI(title="TaskExecutorCore API", version="1.0")
-orchestrator = Orchestrator()
 
 current_flow_state = {
     "status": "Inactivo",
@@ -51,7 +53,7 @@ def run_flow(request: FlowRequest):
         
         current_flow_state = {
             "status": "Ejecutando",
-            "step": "Procesando tarjetas y CVV",
+            "step": "Procesando tarjetas, CVV y expiración",
             "tasks_total": len(task_dicts),
             "completed": 0,
             "details": []
@@ -66,7 +68,7 @@ def run_flow(request: FlowRequest):
             detalles_completos.append(t)
         
         current_flow_state["status"] = "Completado"
-        current_flow_state["step"] = "Tarjetas y CVV generados con éxito"
+        current_flow_state["step"] = "Tarjetas, CVV y expiración generados con éxito"
         current_flow_state["completed"] = len(task_dicts)
         current_flow_state["details"] = detalles_completos
         
