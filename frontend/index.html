@@ -2,45 +2,52 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>TaskExecutorCore - Panel con Copiar Tarjeta</title>
+    <title>AutoFlow Tiendas - Panel de Control Total</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-950 text-white min-h-screen p-6">
-    <div class="max-w-4xl mx-auto">
+    <div class="max-w-5xl mx-auto">
+        <!-- Encabezado -->
         <header class="mb-8 flex justify-between items-center border-b border-gray-800 pb-4">
             <div>
-                <h1 class="text-3xl font-bold text-cyan-400">TaskExecutorCore</h1>
-                <p class="text-gray-400 text-sm">Panel de Control con Copiado Rápido de Tarjetas</p>
+                <h1 class="text-3xl font-bold text-cyan-400">AutoFlow Tiendas</h1>
+                <p class="text-gray-400 text-sm">Panel de Control y Orquestación Batch de VCC</p>
             </div>
             <div id="status-badge" class="px-4 py-1.5 rounded-full text-xs font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
                 Inactivo
             </div>
         </header>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <!-- Métricas del Sistema -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
             <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl">
                 <span class="text-xs text-gray-500 uppercase font-semibold">Estado Global</span>
                 <p id="global-status" class="text-lg font-bold text-gray-200 mt-1">Esperando</p>
             </div>
             <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl">
                 <span class="text-xs text-gray-500 uppercase font-semibold">Paso Actual</span>
-                <p id="global-step" class="text-sm font-medium text-cyan-300 mt-1">En espera...</p>
+                <p id="global-step" class="text-sm font-medium text-cyan-300 mt-1">Listo para procesar...</p>
+            </div>
+            <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl">
+                <span class="text-xs text-gray-500 uppercase font-semibold">Tareas Totales</span>
+                <p id="total-tasks" class="text-xl font-bold text-gray-200 mt-1">0</p>
             </div>
             <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl flex items-center justify-between">
                 <div>
-                    <span class="text-xs text-gray-500 uppercase font-semibold">Tareas</span>
-                    <p id="total-tasks" class="text-xl font-bold text-gray-200 mt-1">0</p>
+                    <span class="text-xs text-gray-500 uppercase font-semibold">Acción</span>
+                    <p class="text-xs text-gray-400">Lote completo</p>
                 </div>
-                <button onclick="ejecutarFlujoReal()" class="bg-cyan-500 hover:bg-cyan-600 text-gray-950 font-bold px-4 py-2.5 rounded-lg text-sm transition shadow-lg">
-                    Ejecutar Flujo
+                <button onclick="ejecutarFlujoCompleto()" class="bg-cyan-500 hover:bg-cyan-600 text-gray-950 font-bold px-4 py-2.5 rounded-lg text-sm transition shadow-lg">
+                    Ejecutar Lote
                 </button>
             </div>
         </div>
 
-        <h2 class="text-lg font-semibold text-gray-300 mb-4">Tarjetas de Procesos</h2>
+        <!-- Tarjetas de Procesos e Identificadores -->
+        <h2 class="text-lg font-semibold text-gray-300 mb-4">Tarjetas de Tareas y VCC Activas</h2>
         <div id="task-cards-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="bg-gray-900 border border-gray-800 p-5 rounded-xl text-gray-500 text-center col-span-2">
-                Presiona "Ejecutar Flujo" para cargar las tarjetas y habilitar el copiado.
+                Haz clic en "Ejecutar Lote" para procesar el flujo completo y generar las tarjetas.
             </div>
         </div>
     </div>
@@ -55,12 +62,12 @@
         }
 
         function renderizarDatos(data) {
-            document.getElementById("global-status").innerText = data.status;
-            document.getElementById("global-step").innerText = data.step;
+            document.getElementById("global-status").innerText = data.status || "Inactivo";
+            document.getElementById("global-step").innerText = data.step || "En espera";
             document.getElementById("total-tasks").innerText = data.tasks_total || 0;
 
             const badge = document.getElementById("status-badge");
-            badge.innerText = data.status;
+            badge.innerText = data.status || "Inactivo";
             if(data.status === "Completado") {
                 badge.className = "px-4 py-1.5 rounded-full text-xs font-bold bg-green-500/20 text-green-400 border border-green-500/30";
             } else if(data.status === "Ejecutando") {
@@ -69,7 +76,7 @@
 
             const container = document.getElementById("task-cards-container");
             if (!data.details || data.details.length === 0) {
-                container.innerHTML = `<div class="bg-gray-900 border border-gray-800 p-5 rounded-xl text-gray-500 text-center col-span-2">Sin tareas cargadas.</div>`;
+                container.innerHTML = `<div class="bg-gray-900 border border-gray-800 p-5 rounded-xl text-gray-500 text-center col-span-2">Sin tareas cargadas en el lote.</div>`;
                 return;
             }
 
@@ -79,10 +86,10 @@
                 let borderColor = exito ? 'border-green-500/40 bg-green-950/10' : 'border-red-500/40 bg-red-950/10';
                 let indicatorColor = exito ? 'bg-green-500' : 'bg-red-500';
                 let statusBadge = exito 
-                    ? '<span class="bg-green-500/20 text-green-400 border border-green-500/30 px-2.5 py-0.5 rounded text-xs font-bold">✅ READY</span>' 
+                    ? '<span class="bg-green-500/20 text-green-400 border border-green-500/30 px-2.5 py-0.5 rounded text-xs font-bold">✅ READY / OK</span>' 
                     : '<span class="bg-red-500/20 text-red-400 border border-red-500/30 px-2.5 py-0.5 rounded text-xs font-bold">❌ FALLÓ</span>';
 
-                let tarjetaTexto = task.data.tarjeta || '****-****-****-4128';
+                let tarjetaTexto = task.card_number || '4242-4128-3041-4128';
 
                 container.innerHTML += `
                     <div class="bg-gray-900 border ${borderColor} p-5 rounded-xl shadow-md relative overflow-hidden">
@@ -91,18 +98,19 @@
                             <span class="text-xs font-mono bg-gray-800 text-cyan-300 px-2.5 py-1 rounded">Perfil: ${task.profile_name}</span>
                             ${statusBadge}
                         </div>
-                        <p class="text-xs text-gray-400 mb-3 truncate"><strong>URL:</strong> ${task.url}</p>
+                        <p class="text-xs text-gray-400 mb-2 truncate"><strong>URL:</strong> ${task.url}</p>
+                        <p class="text-xs text-gray-400 mb-3"><strong>Tienda:</strong> ${task.store_type || 'generic'}</p>
                         <div class="bg-gray-950 p-3 rounded-lg border border-gray-800 text-xs space-y-2 mb-3">
-                            <div class="text-gray-300"><strong>Ítem:</strong> ${task.data.item || 'N/A'}</div>
+                            <div class="text-gray-300"><strong>Producto ID:</strong> ${task.data?.product_id || 'N/A'} (Cant: ${task.data?.quantity || 1})</div>
                             <div class="flex justify-between items-center">
-                                <span class="font-mono text-cyan-200"><strong>Tarjeta:</strong> <span id="card-num-${index}">${tarjetaTexto}</span></span>
+                                <span class="font-mono text-cyan-200"><strong>Tarjeta VCC:</strong> <span id="card-num-${index}">${tarjetaTexto}</span></span>
                                 <button onclick="copiarTarjeta('card-num-${index}', this)" class="bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 px-2.5 py-1 rounded text-xs font-semibold transition">
                                     📋 Copiar
                                 </button>
                             </div>
                         </div>
                         <div class="bg-gray-950/50 border border-gray-800 p-2.5 rounded-lg text-xs text-gray-300">
-                            <strong>Diagnóstico:</strong> ${task.ai_analysis || 'Verificado con éxito'}
+                            <strong>Diagnóstico del Sistema:</strong> ${task.diagnostic || 'Lote procesado y validado con éxito'}
                         </div>
                     </div>
                 `;
@@ -124,12 +132,12 @@
             });
         }
 
-        async function ejecutarFlujoReal() {
-            document.getElementById("global-status").innerText = "Ejecutando...";
+        async function ejecutarFlujoCompleto() {
+            document.getElementById("global-status").innerText = "Ejecutando Lote...";
             const payload = {
                 tasks: [
-                    { profile_name: "mxl_user_1", url: "https://example.com/checkout", data: { item: "Servicio Automatizado", tarjeta: "4242-4128-3094-4128" }, critical: true, success: true },
-                    { profile_name: "mxl_user_2", url: "https://example.com/verify", data: { item: "Validación Nodo", tarjeta: "5555-3041-1128-4128" }, critical: false, success: true }
+                    { id: "task_001", profile_name: "comprador_1", url: "https://ejemplo-shopify.com/producto-a", store_type: "shopify", critical: true, data: { product_id: "12345", quantity: 1 }, card_number: "4242-4128-3041-4128", diagnostic: "Procesado en Shopify - Aprobado" },
+                    { id: "task_002", profile_name: "comprador_2", url: "https://ejemplo-woocommerce.com/producto-b", store_type: "woocommerce", critical: false, data: { product_id: "45678", quantity: 2 }, card_number: "5555-3041-1128-4128", diagnostic: "Procesado en WooCommerce - Validado" }
                 ]
             };
 
@@ -141,7 +149,7 @@
                 });
                 let data = await res.json();
                 renderizarDatos(data.state);
-            } catch (err) { alert("Error: " + err); }
+            } catch (err) { alert("Error al ejecutar: " + err); }
         }
 
         setInterval(consultarEstado, 3000);
