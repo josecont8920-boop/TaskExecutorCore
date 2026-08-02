@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>TaskExecutorCore - Panel con Datos de Tarjeta y CVV</title>
+    <title>TaskExecutorCore - Panel Financiero Completo</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-950 text-white min-h-screen p-6">
@@ -10,7 +10,7 @@
         <header class="mb-8 flex justify-between items-center border-b border-gray-800 pb-4">
             <div>
                 <h1 class="text-3xl font-bold text-cyan-400">TaskExecutorCore</h1>
-                <p class="text-gray-400 text-sm">Panel de Control con Datos Completos y Copiado Rápido</p>
+                <p class="text-gray-400 text-sm">Panel de Control con Datos Financieros y Copiado Rápido</p>
             </div>
             <div id="status-badge" class="px-4 py-1.5 rounded-full text-xs font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
                 Inactivo
@@ -37,10 +37,10 @@
             </div>
         </div>
 
-        <h2 class="text-lg font-semibold text-gray-300 mb-4">Tarjetas de Procesos, CVV y Copiado</h2>
+        <h2 class="text-lg font-semibold text-gray-300 mb-4">Tarjetas, CVV y Botones de Copiado</h2>
         <div id="task-cards-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="bg-gray-900 border border-gray-800 p-5 rounded-xl text-gray-500 text-center col-span-2">
-                Presiona "Ejecutar Flujo" para cargar las tarjetas con CVV y botones de copiar.
+                Presiona "Ejecutar Flujo" para generar las tarjetas con sus respectivos CVV.
             </div>
         </div>
     </div>
@@ -82,7 +82,6 @@
                     ? '<span class="bg-green-500/20 text-green-400 border border-green-500/30 px-2.5 py-0.5 rounded text-xs font-bold">✅ READY / OK</span>' 
                     : '<span class="bg-red-500/20 text-red-400 border border-red-500/30 px-2.5 py-0.5 rounded text-xs font-bold">❌ FALLÓ</span>';
 
-                // Datos de la tarjeta simulada o real
                 let cardNum = task.data?.tarjeta || "4242-4242-4242-4128";
                 let cardCvv = task.data?.cvv || "304";
                 let cardExp = task.data?.exp || "12/28";
@@ -102,26 +101,30 @@
                             <!-- Número de Tarjeta y Copiar -->
                             <div class="flex justify-between items-center">
                                 <span class="font-mono text-cyan-200"><strong>Card:</strong> <span id="card-num-${index}">${cardNum}</span></span>
-                                <button onclick="copiarTexto('card-num-${index}', this)" class="bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 px-2 py-0.5 rounded text-[10px] font-semibold transition">
-                                    📋 Copiar
+                                <button onclick="copiarTexto('card-num-${index}', this)" class="bg-cyan-500/25 hover:bg-cyan-500/40 text-cyan-300 border border-cyan-500/50 px-2.5 py-1 rounded text-xs font-semibold transition shadow">
+                                    📋 Copiar Tarjeta
                                 </button>
                             </div>
 
-                            <!-- CVV y Expiración -->
-                            <div class="flex justify-between items-center pt-1 border-t border-gray-900">
-                                <span class="font-mono text-yellow-300"><strong>CVV:</strong> <span id="card-cvv-${index}">${cardCvv}</span></span>
-                                <button onclick="copiarTexto('card-cvv-${index}', this)" class="bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300 border border-yellow-500/40 px-2 py-0.5 rounded text-[10px] font-semibold transition">
-                                    📋 CVV
-                                </button>
-                                <span class="font-mono text-gray-300 ml-2"><strong>Exp:</strong> <span id="card-exp-${index}">${cardExp}</span></span>
-                                <button onclick="copiarTexto('card-exp-${index}', this)" class="bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 px-2 py-0.5 rounded text-[10px] font-semibold transition">
-                                    📋 Exp
-                                </button>
+                            <!-- CVV, Expiración y Botones Individuales -->
+                            <div class="flex justify-between items-center pt-2 border-t border-gray-900">
+                                <div class="flex items-center space-x-2">
+                                    <span class="font-mono text-yellow-300"><strong>CVV:</strong> <span id="card-cvv-${index}">${cardCvv}</span></span>
+                                    <button onclick="copiarTexto('card-cvv-${index}', this)" class="bg-yellow-500/25 hover:bg-yellow-500/40 text-yellow-300 border border-yellow-500/50 px-2 py-0.5 rounded text-[10px] font-semibold transition">
+                                        📋 Copiar CVV
+                                    </button>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <span class="font-mono text-gray-300"><strong>Exp:</strong> <span id="card-exp-${index}">${cardExp}</span></span>
+                                    <button onclick="copiarTexto('card-exp-${index}', this)" class="bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 px-2 py-0.5 rounded text-[10px] font-semibold transition">
+                                        📋 Copiar Exp
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
                         <div class="bg-gray-950/50 border border-gray-800 p-2.5 rounded-lg text-xs text-gray-300">
-                            <strong>Diagnóstico IA:</strong> ${task.ai_analysis || 'Verificado por Llama3: Ready y sin anomalías.'}
+                            <strong>Diagnóstico IA:</strong> ${task.ai_analysis || 'Verificado con éxito'}
                         </div>
                     </div>
                 `;
@@ -132,9 +135,11 @@
             const textToCopy = document.getElementById(elementId).innerText;
             navigator.clipboard.writeText(textToCopy).then(() => {
                 let originalText = btn.innerText;
-                btn.innerText = "¡OK!";
+                btn.innerText = "¡Copiado!";
+                btn.className = btn.className.replace(/bg-\w+-\d+\/\d+/g, 'bg-green-500/30 text-green-300 border-green-500');
                 setTimeout(() => {
                     btn.innerText = originalText;
+                    btn.className = btn.className.replace(/bg-green-500\/30 text-green-300 border-green-500/g, 'bg-cyan-500/25 text-cyan-300');
                 }, 1500);
             }).catch(err => {
                 alert("Error al copiar: " + err);
