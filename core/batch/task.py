@@ -4,13 +4,14 @@ import uuid
 
 class Task(BaseModel):
     id: str = Field(default_factory=lambda: uuid.uuid4().hex[:8])
-    action: Callable  # Función que ejecuta la lógica de negocio
-    context: Dict[str, Any] = {}  # Perfil, tarjeta, etc.
-    critical: bool = False  # Si falla, detiene el batch
+    action: Callable
+    context: Dict[str, Any] = {}
+    critical: bool = False
+    max_retries: Optional[int] = None
 
 class TaskResult(BaseModel):
     task_id: str
     success: bool
-    data: Optional[Dict[str, Any]] = None
+    data: Optional[Any] = None
     error: Optional[str] = None
-    attempts: int = 1
+    attempts: int = 0

@@ -1,0 +1,3 @@
+id,profile_name,url,store_type,critical,product_id,quantity,variant_id
+task_001,comprador_1,https://httpbin.org/status/200,shopify,True,12345,1,67890
+task_002,comprador_2,https://httpbin.org/status/200,woocommerce,False,45678,2,
