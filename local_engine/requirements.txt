@@ -1,0 +1,6 @@
+TTS==0.22.0
+moviepy==1.0.3
+pypdf==4.2.0
+streamlit==1.35.0
+python-dotenv==1.0.1
+Pillow==10.3.0
