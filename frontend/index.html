@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>TaskExecutorCore - Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white p-8">
+    <div class="max-w-xl mx-auto bg-gray-800 p-6 rounded-lg shadow-lg">
+        <h1 class="text-2xl font-bold mb-4 text-cyan-400">TaskExecutorCore Dashboard</h1>
+        <p class="text-gray-400 mb-6">Panel de control y ejecución de tareas automatizadas.</p>
+        
+        <button onclick="ejecutarFlujo()" class="bg-cyan-500 hover:bg-cyan-600 text-gray-900 font-bold py-2 px-4 rounded w-full">
+            Ejecutar Flujo de Prueba
+        </button>
+        
+        <div id="resultado" class="mt-4 p-4 bg-gray-900 rounded hidden text-sm font-mono"></div>
+    </div>
+
+    <script>
+        async function ejecutarFlujo() {
+            const resDiv = document.getElementById("resultado");
+            resDiv.classList.remove("hidden");
+            resDiv.innerText = "Ejecutando en el servidor...";
+
+            const payload = {
+                tasks: [
+                    { profile_name: "web_user_1", url: "https://example.com/checkout", data: { product: "A" }, critical: true }
+                ]
+            };
+
+            try {
+                let response = await fetch('/api/run-flow', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                let data = await response.json();
+                resDiv.innerText = JSON.stringify(data, null, 2);
+            } catch (err) {
+                resDiv.innerText = "Error: " + err;
+            }
+        }
+    </script>
+</body>
+</html>
