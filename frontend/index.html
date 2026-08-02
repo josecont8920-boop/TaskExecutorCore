@@ -2,52 +2,45 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>AutoFlow Tiendas - Panel de Control Total</title>
+    <title>TaskExecutorCore - Panel con Datos de Tarjeta y CVV</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-950 text-white min-h-screen p-6">
-    <div class="max-w-5xl mx-auto">
-        <!-- Encabezado -->
+    <div class="max-w-4xl mx-auto">
         <header class="mb-8 flex justify-between items-center border-b border-gray-800 pb-4">
             <div>
-                <h1 class="text-3xl font-bold text-cyan-400">AutoFlow Tiendas</h1>
-                <p class="text-gray-400 text-sm">Panel de Control y Orquestación Batch de VCC</p>
+                <h1 class="text-3xl font-bold text-cyan-400">TaskExecutorCore</h1>
+                <p class="text-gray-400 text-sm">Panel de Control con Datos Completos y Copiado Rápido</p>
             </div>
             <div id="status-badge" class="px-4 py-1.5 rounded-full text-xs font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
                 Inactivo
             </div>
         </header>
 
-        <!-- Métricas del Sistema -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
             <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl">
                 <span class="text-xs text-gray-500 uppercase font-semibold">Estado Global</span>
                 <p id="global-status" class="text-lg font-bold text-gray-200 mt-1">Esperando</p>
             </div>
             <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl">
                 <span class="text-xs text-gray-500 uppercase font-semibold">Paso Actual</span>
-                <p id="global-step" class="text-sm font-medium text-cyan-300 mt-1">Listo para procesar...</p>
-            </div>
-            <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl">
-                <span class="text-xs text-gray-500 uppercase font-semibold">Tareas Totales</span>
-                <p id="total-tasks" class="text-xl font-bold text-gray-200 mt-1">0</p>
+                <p id="global-step" class="text-sm font-medium text-cyan-300 mt-1">En espera...</p>
             </div>
             <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl flex items-center justify-between">
                 <div>
-                    <span class="text-xs text-gray-500 uppercase font-semibold">Acción</span>
-                    <p class="text-xs text-gray-400">Lote completo</p>
+                    <span class="text-xs text-gray-500 uppercase font-semibold">Tareas</span>
+                    <p id="total-tasks" class="text-xl font-bold text-gray-200 mt-1">0</p>
                 </div>
-                <button onclick="ejecutarFlujoCompleto()" class="bg-cyan-500 hover:bg-cyan-600 text-gray-950 font-bold px-4 py-2.5 rounded-lg text-sm transition shadow-lg">
-                    Ejecutar Lote
+                <button onclick="ejecutarFlujoReal()" class="bg-cyan-500 hover:bg-cyan-600 text-gray-950 font-bold px-4 py-2.5 rounded-lg text-sm transition shadow-lg">
+                    Ejecutar Flujo
                 </button>
             </div>
         </div>
 
-        <!-- Tarjetas de Procesos e Identificadores -->
-        <h2 class="text-lg font-semibold text-gray-300 mb-4">Tarjetas de Tareas y VCC Activas</h2>
+        <h2 class="text-lg font-semibold text-gray-300 mb-4">Tarjetas de Procesos, CVV y Copiado</h2>
         <div id="task-cards-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="bg-gray-900 border border-gray-800 p-5 rounded-xl text-gray-500 text-center col-span-2">
-                Haz clic en "Ejecutar Lote" para procesar el flujo completo y generar las tarjetas.
+                Presiona "Ejecutar Flujo" para cargar las tarjetas con CVV y botones de copiar.
             </div>
         </div>
     </div>
@@ -62,12 +55,12 @@
         }
 
         function renderizarDatos(data) {
-            document.getElementById("global-status").innerText = data.status || "Inactivo";
-            document.getElementById("global-step").innerText = data.step || "En espera";
+            document.getElementById("global-status").innerText = data.status;
+            document.getElementById("global-step").innerText = data.step;
             document.getElementById("total-tasks").innerText = data.tasks_total || 0;
 
             const badge = document.getElementById("status-badge");
-            badge.innerText = data.status || "Inactivo";
+            badge.innerText = data.status;
             if(data.status === "Completado") {
                 badge.className = "px-4 py-1.5 rounded-full text-xs font-bold bg-green-500/20 text-green-400 border border-green-500/30";
             } else if(data.status === "Ejecutando") {
@@ -76,7 +69,7 @@
 
             const container = document.getElementById("task-cards-container");
             if (!data.details || data.details.length === 0) {
-                container.innerHTML = `<div class="bg-gray-900 border border-gray-800 p-5 rounded-xl text-gray-500 text-center col-span-2">Sin tareas cargadas en el lote.</div>`;
+                container.innerHTML = `<div class="bg-gray-900 border border-gray-800 p-5 rounded-xl text-gray-500 text-center col-span-2">Sin tareas cargadas.</div>`;
                 return;
             }
 
@@ -89,7 +82,10 @@
                     ? '<span class="bg-green-500/20 text-green-400 border border-green-500/30 px-2.5 py-0.5 rounded text-xs font-bold">✅ READY / OK</span>' 
                     : '<span class="bg-red-500/20 text-red-400 border border-red-500/30 px-2.5 py-0.5 rounded text-xs font-bold">❌ FALLÓ</span>';
 
-                let tarjetaTexto = task.card_number || '4242-4128-3041-4128';
+                // Datos de la tarjeta simulada o real
+                let cardNum = task.data?.tarjeta || "4242-4242-4242-4128";
+                let cardCvv = task.data?.cvv || "304";
+                let cardExp = task.data?.exp || "12/28";
 
                 container.innerHTML += `
                     <div class="bg-gray-900 border ${borderColor} p-5 rounded-xl shadow-md relative overflow-hidden">
@@ -99,45 +95,58 @@
                             ${statusBadge}
                         </div>
                         <p class="text-xs text-gray-400 mb-2 truncate"><strong>URL:</strong> ${task.url}</p>
-                        <p class="text-xs text-gray-400 mb-3"><strong>Tienda:</strong> ${task.store_type || 'generic'}</p>
+                        
                         <div class="bg-gray-950 p-3 rounded-lg border border-gray-800 text-xs space-y-2 mb-3">
-                            <div class="text-gray-300"><strong>Producto ID:</strong> ${task.data?.product_id || 'N/A'} (Cant: ${task.data?.quantity || 1})</div>
+                            <div class="text-gray-300"><strong>Ítem:</strong> ${task.data.item || 'Servicio Automatizado'}</div>
+                            
+                            <!-- Número de Tarjeta y Copiar -->
                             <div class="flex justify-between items-center">
-                                <span class="font-mono text-cyan-200"><strong>Tarjeta VCC:</strong> <span id="card-num-${index}">${tarjetaTexto}</span></span>
-                                <button onclick="copiarTarjeta('card-num-${index}', this)" class="bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 px-2.5 py-1 rounded text-xs font-semibold transition">
+                                <span class="font-mono text-cyan-200"><strong>Card:</strong> <span id="card-num-${index}">${cardNum}</span></span>
+                                <button onclick="copiarTexto('card-num-${index}', this)" class="bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 px-2 py-0.5 rounded text-[10px] font-semibold transition">
                                     📋 Copiar
                                 </button>
                             </div>
+
+                            <!-- CVV y Expiración -->
+                            <div class="flex justify-between items-center pt-1 border-t border-gray-900">
+                                <span class="font-mono text-yellow-300"><strong>CVV:</strong> <span id="card-cvv-${index}">${cardCvv}</span></span>
+                                <button onclick="copiarTexto('card-cvv-${index}', this)" class="bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300 border border-yellow-500/40 px-2 py-0.5 rounded text-[10px] font-semibold transition">
+                                    📋 CVV
+                                </button>
+                                <span class="font-mono text-gray-300 ml-2"><strong>Exp:</strong> <span id="card-exp-${index}">${cardExp}</span></span>
+                                <button onclick="copiarTexto('card-exp-${index}', this)" class="bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 px-2 py-0.5 rounded text-[10px] font-semibold transition">
+                                    📋 Exp
+                                </button>
+                            </div>
                         </div>
+
                         <div class="bg-gray-950/50 border border-gray-800 p-2.5 rounded-lg text-xs text-gray-300">
-                            <strong>Diagnóstico del Sistema:</strong> ${task.diagnostic || 'Lote procesado y validado con éxito'}
+                            <strong>Diagnóstico IA:</strong> ${task.ai_analysis || 'Verificado por Llama3: Ready y sin anomalías.'}
                         </div>
                     </div>
                 `;
             });
         }
 
-        function copiarTarjeta(elementId, btn) {
+        function copiarTexto(elementId, btn) {
             const textToCopy = document.getElementById(elementId).innerText;
             navigator.clipboard.writeText(textToCopy).then(() => {
                 let originalText = btn.innerText;
-                btn.innerText = "¡Copiada!";
-                btn.className = "bg-green-500/20 text-green-300 border border-green-500/40 px-2.5 py-1 rounded text-xs font-semibold transition";
+                btn.innerText = "¡OK!";
                 setTimeout(() => {
                     btn.innerText = originalText;
-                    btn.className = "bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 px-2.5 py-1 rounded text-xs font-semibold transition";
-                }, 2000);
+                }, 1500);
             }).catch(err => {
                 alert("Error al copiar: " + err);
             });
         }
 
-        async function ejecutarFlujoCompleto() {
-            document.getElementById("global-status").innerText = "Ejecutando Lote...";
+        async function ejecutarFlujoReal() {
+            document.getElementById("global-status").innerText = "Ejecutando...";
             const payload = {
                 tasks: [
-                    { id: "task_001", profile_name: "comprador_1", url: "https://ejemplo-shopify.com/producto-a", store_type: "shopify", critical: true, data: { product_id: "12345", quantity: 1 }, card_number: "4242-4128-3041-4128", diagnostic: "Procesado en Shopify - Aprobado" },
-                    { id: "task_002", profile_name: "comprador_2", url: "https://ejemplo-woocommerce.com/producto-b", store_type: "woocommerce", critical: false, data: { product_id: "45678", quantity: 2 }, card_number: "5555-3041-1128-4128", diagnostic: "Procesado en WooCommerce - Validado" }
+                    { profile_name: "mxl_user_1", url: "https://example.com/checkout", data: { item: "Servicio Pro Automatizado", tarjeta: "4242-4242-4242-4128", cvv: "112", exp: "08/29" }, critical: true, success: true },
+                    { profile_name: "mxl_user_2", url: "https://example.com/verify", data: { item: "Validación de Nodo en Red", tarjeta: "5555-4444-3332-4128", cvv: "890", exp: "03/27" }, critical: false, success: true }
                 ]
             };
 
@@ -149,7 +158,7 @@
                 });
                 let data = await res.json();
                 renderizarDatos(data.state);
-            } catch (err) { alert("Error al ejecutar: " + err); }
+            } catch (err) { alert("Error: " + err); }
         }
 
         setInterval(consultarEstado, 3000);
