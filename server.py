@@ -1,13 +1,9 @@
-import sys
 import os
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from typing import List, Dict, Any
-
-# Asegurar ruta base
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 app = FastAPI(title="TaskExecutorCore API", version="1.0")
 
@@ -61,7 +57,6 @@ def run_flow(request: FlowRequest):
         
         detalles_completos = []
         for i, t in enumerate(task_dicts):
-            # Asegurar que la estructura de datos contenga las tarjetas y CVV
             data_payload = t.get("data", {})
             data_payload["tarjeta"] = data_payload.get("tarjeta", f"4242-4242-4242-41{28 + i}")
             data_payload["cvv"] = data_payload.get("cvv", f"{300 + i}")
