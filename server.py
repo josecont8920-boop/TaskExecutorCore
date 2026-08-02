@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from typing import List, Dict, Any
 from core.orchestrator import Orchestrator
 import os
+import uvicorn
 
 app = FastAPI(title="TaskExecutorCore API", version="1.0")
 orchestrator = Orchestrator()
@@ -36,7 +37,7 @@ def serve_frontend():
 @app.get("/health")
 @app.get("/api/health")
 def health_check():
-    return {"status": "online", "system": "TaskExecutorCore"}
+    return {"status": "healthy", "service": "TaskExecutorCore"}
 
 @app.get("/api/flow-status")
 def get_flow_status():
@@ -50,7 +51,7 @@ def run_flow(request: FlowRequest):
         
         current_flow_state = {
             "status": "Ejecutando",
-            "step": "Procesando tarjetas y CVV con IA local",
+            "step": "Procesando tarjetas y CVV",
             "tasks_total": len(task_dicts),
             "completed": 0,
             "details": []
@@ -58,7 +59,6 @@ def run_flow(request: FlowRequest):
         
         detalles_completos = []
         for i, t in enumerate(task_dicts):
-            # Inyectar datos financieros completos con CVV y Expiración
             t["data"]["tarjeta"] = t["data"].get("tarjeta", f"4242-4242-4242-41{28 + i}")
             t["data"]["cvv"] = t["data"].get("cvv", f"{300 + i}")
             t["data"]["exp"] = t["data"].get("exp", "12/28")
@@ -75,3 +75,7 @@ def run_flow(request: FlowRequest):
         current_flow_state["status"] = "Error"
         current_flow_state["step"] = str(e)
         raise HTTPException(status_code=500, detail=str(e))
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8080))
+    uvicorn.run("server:app", host="0.0.0.0", port=port)
