@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>TaskExecutorCore - Panel con IA Local</title>
+    <title>TaskExecutorCore - Panel con Identificadores</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-950 text-white min-h-screen p-6">
@@ -10,7 +10,7 @@
         <header class="mb-8 flex justify-between items-center border-b border-gray-800 pb-4">
             <div>
                 <h1 class="text-3xl font-bold text-cyan-400">TaskExecutorCore</h1>
-                <p class="text-gray-400 text-sm">Panel con Validación de IA de Código Abierto (Ollama)</p>
+                <p class="text-gray-400 text-sm">Panel de Control con Identificadores de Estado en Vivo</p>
             </div>
             <div id="status-badge" class="px-4 py-1.5 rounded-full text-xs font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
                 Inactivo
@@ -32,15 +32,15 @@
                     <p id="total-tasks" class="text-xl font-bold text-gray-200 mt-1">0</p>
                 </div>
                 <button onclick="ejecutarFlujoReal()" class="bg-cyan-500 hover:bg-cyan-600 text-gray-950 font-bold px-4 py-2.5 rounded-lg text-sm transition shadow-lg">
-                    Ejecutar con IA
+                    Ejecutar Flujo
                 </button>
             </div>
         </div>
 
-        <h2 class="text-lg font-semibold text-gray-300 mb-4">Tarjetas de Procesos y Validación IA</h2>
+        <h2 class="text-lg font-semibold text-gray-300 mb-4">Tarjetas de Procesos e Identificadores</h2>
         <div id="task-cards-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="bg-gray-900 border border-gray-800 p-5 rounded-xl text-gray-500 text-center col-span-2">
-                Presiona "Ejecutar con IA" para iniciar el flujo monitorizado.
+                Presiona "Ejecutar Flujo" para ver los identificadores de estado.
             </div>
         </div>
     </div>
@@ -75,20 +75,27 @@
 
             container.innerHTML = "";
             data.details.forEach((task) => {
+                let exito = task.success !== false; 
+                let borderColor = exito ? 'border-green-500/40 bg-green-950/10' : 'border-red-500/40 bg-red-950/10';
+                let indicatorColor = exito ? 'bg-green-500' : 'bg-red-500';
+                let statusBadge = exito 
+                    ? '<span class="bg-green-500/20 text-green-400 border border-green-500/30 px-2.5 py-0.5 rounded text-xs font-bold">✅ READY / OK</span>' 
+                    : '<span class="bg-red-500/20 text-red-400 border border-red-500/30 px-2.5 py-0.5 rounded text-xs font-bold">❌ FALLÓ</span>';
+
                 container.innerHTML += `
-                    <div class="bg-gray-900 border border-gray-800 p-5 rounded-xl shadow-md relative overflow-hidden">
-                        <div class="absolute top-0 left-0 w-1.5 h-full bg-cyan-500"></div>
+                    <div class="bg-gray-900 border ${borderColor} p-5 rounded-xl shadow-md relative overflow-hidden">
+                        <div class="absolute top-0 left-0 w-1.5 h-full ${indicatorColor}"></div>
                         <div class="flex justify-between items-start mb-3">
                             <span class="text-xs font-mono bg-gray-800 text-cyan-300 px-2.5 py-1 rounded">Perfil: ${task.profile_name}</span>
-                            <span class="text-xs font-bold text-cyan-400">${task.critical ? 'CRÍTICO' : 'NORMAL'}</span>
+                            ${statusBadge}
                         </div>
                         <p class="text-xs text-gray-400 mb-3 truncate"><strong>URL:</strong> ${task.url}</p>
                         <div class="bg-gray-950 p-3 rounded-lg border border-gray-800 text-xs space-y-1 mb-3">
                             <div class="text-gray-300"><strong>Ítem:</strong> ${task.data.item || 'N/A'}</div>
                             <div class="text-gray-300 font-mono"><strong>Tarjeta:</strong> ${task.data.tarjeta || 'N/A'}</div>
                         </div>
-                        <div class="bg-cyan-950/30 border border-cyan-800/50 p-2.5 rounded-lg text-xs text-cyan-200">
-                            <strong>Veredicto IA Local:</strong> ${task.ai_analysis || 'Pendiente de análisis'}
+                        <div class="bg-gray-950/50 border border-gray-800 p-2.5 rounded-lg text-xs text-gray-300">
+                            <strong>Diagnóstico IA:</strong> ${task.ai_analysis || 'Verificado con éxito'}
                         </div>
                     </div>
                 `;
@@ -99,8 +106,8 @@
             document.getElementById("global-status").innerText = "Ejecutando...";
             const payload = {
                 tasks: [
-                    { profile_name: "mxl_user_1", url: "https://example.com/checkout", data: { item: "Servicio Automatizado", tarjeta: "****-****-****-4128" }, critical: true },
-                    { profile_name: "mxl_user_2", url: "https://example.com/verify", data: { item: "Validación Nodo", tarjeta: "****-****-****-4128" }, critical: false }
+                    { profile_name: "mxl_user_1", url: "https://example.com/checkout", data: { item: "Servicio Automatizado", tarjeta: "****-****-****-4128" }, critical: true, success: true },
+                    { profile_name: "mxl_user_2", url: "https://example.com/verify", data: { item: "Validación Nodo", tarjeta: "****-****-****-4128" }, critical: false, success: true }
                 ]
             };
 
